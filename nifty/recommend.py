@@ -1,11 +1,16 @@
 from abc import ABC, abstractmethod
 import logging
+import pickle as pkl
+import warnings
 
 import networkx as nx
 import numpy as np
+from matplotlib import pyplot as plt
 
-from .utils import *
+from utils import *
+from preprocess import DATA_DIR, preprocess
 
+warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -36,7 +41,7 @@ class RecommenderSystem(ABC):
         graph.remove_edges_from(e)
 
         # Remove users who haven't visited at least two islands
-        graph = graph.subgraph([node for node in graph if len(graph.edges(node)) >= 2])
+        graph = nx.DiGraph(graph.subgraph([node for node in graph if len(graph.edges(node)) >= 2]))
 
         logger.info(f"Data contains {len(graph.nodes)} users and {len(graph.edges)} island visits after cleaning.")
 
@@ -149,5 +154,41 @@ class SimrankBaseline(RecommenderSystem):
         self.scores = scores
 
 
+def maybe_create_recsys():
+    """ Check for a serialized version of the SimrankBaseline class, load it if it's there, create it if not.
+
+    In a production implementation, this will be parameterized by choice of model. """
+    try:
+        with open(f'{DATA_DIR}/recsys.pkl', 'rb') as f:
+            recsys = pkl.load(f)
+    except Exception:
+        logger.info("Serialized recsys not found (or other error encountered), attempting to create it")
+        try:
+            graph = nx.read_gpickle(f"{DATA_DIR}/graph.pkl")
+        except FileNotFoundError:
+            logger.info("Preprocessed data not found, running preprocessing pipeline")
+            graph = preprocess(serialize=True)
+
+        recsys = SimrankBaseline(graph)
+        recsys.score()
+        recsys.compute_user_metrics()
+
+        with open(f'{DATA_DIR}/recsys.pkl', 'wb') as f:
+            pkl.dump(recsys, f)
+
+    return recsys
+
+
 if __name__ == '__main__':
-    pass
+    recsys = maybe_create_recsys()
+    logger.info(f"Saving average PR curve plot to {DATA_DIR}/plots/average.jpg")
+
+    m_av_prec, m_rec = recsys.get_average_metrics()
+
+    fig, ax = plt.subplots()
+    ax.plot(m_rec, m_av_prec)
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.set_title("Precision as a Function of Recall Averaged Across Users")
+    plt.savefig('data/plots/average_performance_across_users.jpg')
+    plt.close(fig)

@@ -3,3 +3,6 @@ notebooks/
 nifty/__pycache__
 data/*
 !data/.gitkeep
+!data/plots
+data/plots/*
+!data/plots/.gitkeep

@@ -1,6 +1,3 @@
-import numpy as np
-
-
 def apk(actual, predicted, k=10):
     """
     Computes the average precision at k.
