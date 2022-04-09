@@ -7,7 +7,7 @@ import sys
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# In a more sophisticated setting these will be set in the environment
+# In production these will be environment variables
 DATA_FILENAME = 'user_behaviour.json'
 DATA_DIR = 'data'
 
